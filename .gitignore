@@ -1,0 +1,10 @@
+
+# Terraform
+infrastructure/.terraform/
+infrastructure/*.tfstate
+infrastructure/*.tfstate.backup
+infrastructure/.terraform.lock.hcl
+
+# Environment files
+expensy_backend/.env
+expensy_frontend/.env.local

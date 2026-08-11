@@ -1,157 +1,362 @@
-<!-- Final Project: End-to-End DevOps Deployment -->
+# Expensy — End-to-End DevOps Deployment
 
-## Lesson Overview :pencil2:
+Expensy is a lightweight expense tracker built with Next.js (frontend) and Node/Express (backend), deployed end-to-end using a full DevOps pipeline: Docker, GitHub Actions CI/CD, Terraform-provisioned AWS EKS, Kubernetes, and Prometheus/Grafana monitoring.
 
-In this project, we will focus on the hands-on implementation of the learnings throughout this program, where you will gain practical insights while setting up the entire DevOps cycle and deploying applications using acquired best practices. 
+## Project Structure
 
-<br>
+```
+devops-final-project-3/
+├── expensy_frontend/       # Next.js frontend
+│   └── Dockerfile.frontend
+├── expensy_backend/        # Node/Express backend
+│   └── Dockerfile.backend
+├── infrastructure/         # Terraform (VPC + EKS)
+│   └── main.tf
+├── K8s/                    # Kubernetes manifests
+│   ├── namespace.yaml
+│   ├── mongo.yaml
+│   ├── redis.yaml
+│   ├── backend.yaml
+│   └── frontend.yaml
+├── monitoring/              # Prometheus/Grafana config + dashboards
+│   ├── prometheus-values.yaml
+│   ├── namespace-pods-dashboard.json
+│   ├── screenshots/
+│   └── README.md
+├── docker-compose.yaml
+└── .github/workflows/ci-cd.yaml
+```
 
-## Learning Objectives :notebook:
+---
 
-By the end of this project, you will: 
+## 1. Local Development
 
-1. Apply DevOps practices to a real-world project in a production environment.
-2. Build an effective CI/CD pipeline to automate delivery.
-3. Automate provisioning, configuration and infrastructure management using Terraform and Ansible. 
-4. Deploy and manage containerized applications using Kubernetes. 
-5. Integrate applications with Managed Kubernetes Service and other cloud services
-6. Set up monitoring and create dashboards using Grafana and Prometheus
-7. Resolve issues arising during the entire cycle using best practices
+<img width="1422" height="266" alt="Screenshot 2026-08-11 152504" src="https://github.com/user-attachments/assets/e91f5175-5e60-44b0-9674-c65ef0828430" />
 
-<br>
 
-## Project Highlights :key:
+### Prerequisites
+- Docker
+- Node.js 20
+- AWS CLI (for later steps)
 
-### Product Management:
+### Start Mongo & Redis
 
-1. This capstone project is a team project, where you will assume roles and work as a scrum team. 
-2. The following indicators will be helpful for the successful completion of your project:         
-    - The duration of one Sprint Cycle is 5 days. So, you will have three Sprint Cycles for this project.
-    - Start with identifying a Scrum Master within your team.
-    - Make sure to follow all scrum events like Sprint, Sprint Planning, Daily Scrum, Sprint Review, Sprint Retrospection.
-    - Plan a Sprint Review at the end of every Sprint Cycle.
-3. Your instructor will be the product owner. If you have any questions regarding the requirements or deliverables, you can address them to the Product Owner.
-4. **Suggestion:** Start with a Team Agreement 
-    - Decide your working hours
-    - Decide your definition of done
-    - Decide your team’s way of work
-    - Identify the time when you will have your scrum events like daily scrum, sprint review, and other scrum events 
-5. We will make use of Azure Boards (or JIRA boards or any other similar tool) to manage work
-6. Please ensure that you have your Daily Scrum and evening sync-up (daily retrospective) every day.
-7. The final sprint review and respective presentations will be held on the last day of the project (during the second half).
+```bash
+docker run --name mongo -d -p 27017:27017 \
+  -e MONGO_INITDB_ROOT_USERNAME=root \
+  -e MONGO_INITDB_ROOT_PASSWORD=example \
+  mongo:latest
 
-<br>
+docker run --name redis -d -p 6379:6379 \
+  redis:latest redis-server --requirepass someredispassword
+```
 
-### Pre-requisites
+### Backend
 
-1. You can use any cloud of your choice (AWS, Azure or Hybrid). Make sure to have an account with free-trial or an account with enough credit.
-2. Create a free account on the DockerHub registry. This account will be used to host docker images used in the project
+`expensy_backend/.env`:
+```
+PORT=8706
+DATABASE_URI=mongodb://root:example@localhost:27017
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=someredispassword
+```
 
-### Web Application Introduction
+```bash
+cd expensy_backend
+npm install
+npm start   # runs tsc build, then node dist/server.js
+```
 
-This sample application is an Expense Tracker with four microservices, a backend built in node, frontend built with Next.js (Node based framework), along with a MongoDB database and Redis caching DB.
+<img width="872" height="127" alt="Screenshot 2026-08-11 153926" src="https://github.com/user-attachments/assets/c076ac08-71e2-427c-9c5e-abda1b67b262" />
 
-[Clone this repository and share it with the team](https://github.com/saurabhd2106/devops-final-project.git)
 
-Your task is to build a solution for this application that is scalable and can support zero to thousands of users. 
+### Frontend
 
-### Make sure to use the following:
+`expensy_frontend/.env.local`:
+```
+NEXT_PUBLIC_API_URL=http://localhost:8706
+```
 
-#### 1. Infrastructure as Code (IaC):
+```bash
+cd expensy_frontend
+npm install
+npm run dev
+```
 
-- Use Terraform, AWS CloudFormation, or another IaC tool to define your infrastructure.
+App runs at `http://localhost:3000`.
 
-#### 2. Your infrastructure should include:
+---
+<img width="925" height="288" alt="Screenshot 2026-08-11 155615" src="https://github.com/user-attachments/assets/f1105d45-b704-4f31-bf01-c4334151aff4" />
 
-- Compute resources (e.g., EC2 instances, Kubernetes clusters).
-- Networking resources (e.g., VPC, subnets, security groups).
-- Storage resources (e.g., S3 buckets, RDS instances).
-- Continuous Integration/Continuous Deployment (CI/CD):
+<img width="1911" height="1088" alt="Screenshot 2026-08-11 154535" src="https://github.com/user-attachments/assets/493aed38-659d-4078-a24e-b9ad9dd74679" />
+<img width="1905" height="875" alt="Screenshot 2026-08-11 154603" src="https://github.com/user-attachments/assets/575944a6-c10e-4f40-bcaa-d091271f5acf" />
 
-#### 3. Implement a CI/CD pipeline using tools such as Jenkins, GitLab CI, or GitHub Actions.
 
-The pipeline should:
-- Automatically build and test your application.
-- Deploy the application to a staging environment.
-- Deploy to production upon approval.
 
-#### 4. Containerization and Orchestration:
-- Containerize your application using Docker.
-- Use Kubernetes or Docker Swarm for orchestration to ensure your application can scale horizontally.
 
-#### 5. Monitoring and Logging:
 
-- Implement monitoring using tools like Prometheus, Grafana, or AWS CloudWatch.
+### Application
+My Expensy frontend was previously running directly on my machine/Docker Desktop, with:
+localhost:3002 → frontend container
+http://localhost:3002
 
-#### 6. Autoscaling:
+AWS EKS (Deployed and working) 
+The Expensy application is deployed on AWS EKS and is accessible through
+the AWS Application Load Balancer:
 
-- Configure autoscaling for your compute resources (e.g., AWS Auto Scaling groups, Kubernetes Horizontal Pod Autoscaler) to handle varying loads.
+http://aaaf2fe1f0a5d421298674bc97989bb1-464724746.us-east-1.elb.amazonaws.com/home
 
-#### 7. Security and Compliance:
+<img width="1901" height="965" alt="Screenshot 2026-08-11 170616" src="https://github.com/user-attachments/assets/a30c2e2f-83d5-474a-b9c4-2c21247f7eae" />
+<img width="1915" height="647" alt="Screenshot 2026-08-11 170636" src="https://github.com/user-attachments/assets/6a9f6348-b02f-421c-adb5-4ea887c76e31" />
 
-- Implement best security practices, including network security (firewalls, security groups), data encryption, and IAM policies.
-- Ensure compliance with relevant standards (e.g., GDPR, HIPAA) as applicable.
 
-### Deliverables:
 
-#### 1. Infrastructure Code:
 
-- Provide all IaC scripts and configuration files like Terraform scripts, AWS CloudFormation templates, Ansible playbooks, etc.
-- Include documentation explaining the infrastructure setup and how to deploy it.
 
-#### 2. CI/CD Pipeline Configuration:
+## 2. Containerization
 
-- Provide the CI/CD pipeline configuration files like Jenkinsfile, GitHub Actions workflows, etc.
-- Include detailed documentation on how to set up and use the pipeline.
+Both services have multi-stage Dockerfiles (`Dockerfile.backend`, `Dockerfile.frontend`) that build the app, then run it in a minimal runtime image.
 
-#### 3. Application Containerization and Orchestration:
+**Key detail:** `NEXT_PUBLIC_API_URL` is compiled into the frontend's JS bundle at **build time** (not read at runtime), since it's a client-side/browser variable. It must be passed as a Docker build arg:
 
-- Provide Dockerfiles and Kubernetes/Docker Swarm configuration files.
-- Include documentation on how to build and deploy the containers.
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_API_URL=<backend-public-url> \
+  -t <image-tag> -f Dockerfile.frontend .
+```
 
-#### 4. Monitoring and Logging Configuration:
+<img width="1458" height="927" alt="Screenshot 2026-08-11 160517" src="https://github.com/user-attachments/assets/f689d649-8794-40cd-a5b9-4354b5717f7b" />
 
-- Provide configuration files for monitoring and logging tools, including Prometheus configuration, Grafana dashboards, ELK stack configuration, etc.
-- Include documentation on how to set up and interpret the monitoring and logging data.
+<img width="1432" height="337" alt="Screenshot 2026-08-11 160607" src="https://github.com/user-attachments/assets/0af24375-055c-48d8-b306-ad38385ffd7f" />
 
-#### 5. Autoscaling Configuration:
 
-- Provide configuration files or scripts for autoscaling.
-- Include documentation explaining the autoscaling policies, criteria for scaling, how to simulate load to test autoscaling, commands to check the current scaling status, etc. 
 
-#### 6. Security and Compliance Documentation:
 
-- Provide a security overview document detailing the measures implemented.
-- Include compliance checklists and how your solution adheres to them.
+### Local full-stack via Docker Compose
 
-### Evaluation Criteria:
+```bash
+docker compose up --build
+```
 
-1. Scalability:
+Spins up Mongo, Redis, backend, and frontend together, wired via the internal Docker network.
 
-- The solution should handle increasing loads efficiently.
-- Autoscaling should work as expected, without degrading performance.
-- Infrastructure should be able to scale horizontally (adding more instances) or vertically (upgrading existing instances) as needed.
+---
 
-2. Reliability:
+## 3. CI/CD Pipeline
 
-- The CI/CD pipeline should deploy the application without errors.
-- Monitoring and logging should provide useful insights into the application’s health.
-- The pipeline should be ready for smooth integration of new code and features.
+`.github/workflows/ci-cd.yaml` — three jobs:
 
-3. Security:
+1. **build-and-test** — installs deps, builds, runs tests for both services (matrix job).
+2. **docker-build-push** — builds both images and pushes to **both** Docker Hub and Amazon ECR (hybrid registry setup).
+3. **deploy** — gated behind a GitHub **Environment** (`production`) with required reviewers, satisfying the "manual approval before production" requirement. Currently a placeholder step, ready to be replaced with real `kubectl`/`helm` deploy commands.
 
-- The solution should follow best security practices.
-- Compliance with relevant standards should be documented.
+### Required GitHub Secrets
+| Secret | Purpose |
+|---|---|
+| `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` | Docker Hub push |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` | ECR push |
 
-4. Documentation:
+---
 
-- The documentation should be clear and comprehensive documentation for each component.
-- Ease of understanding and reproducibility must be considered while documenting all components. 
+<img width="1887" height="987" alt="Screenshot 2026-08-11 163034" src="https://github.com/user-attachments/assets/bb712366-6c84-4a0d-a791-785b3cbccbe9" />
 
-<!-- ## Additional Resources :clipboard: 
 
-If you would like to study these concepts before the class or would benefit from some remedial studying, please utilize the resources below: -->
 
-<br>
+## 4. Infrastructure (Terraform → EKS)
 
-**Good luck!**
+`infrastructure/main.tf` provisions, via the `terraform-aws-modules` community modules:
+- A VPC with public + private subnets, NAT gateway, IGW
+- An EKS cluster (v1.33) with a managed node group (`t3.medium`, 2–3 nodes)
+- Core cluster addons (`vpc-cni`, `kube-proxy`, `coredns`) — **required** for nodes to reach `Ready` state and for pod networking/DNS to work at all
+- An ALB-facing security group for future ingress use
+
+```bash
+cd infrastructure
+terraform init
+terraform plan
+terraform apply
+```
+
+```bash
+aws eks update-kubeconfig --region us-east-1 --name expensy-miracle-eks
+kubectl get nodes
+
+
+
+```
+
+---
+<img width="811" height="132" alt="Screenshot 2026-08-11 163506" src="https://github.com/user-attachments/assets/5f276e08-32e5-4b13-ab0f-f119194cdef9" />
+
+
+<img width="1813" height="1143" alt="Screenshot 2026-08-11 162547" src="https://github.com/user-attachments/assets/4a2a6e7a-de7d-45c8-a297-c7046a8b752c" />
+
+
+
+## 5. Kubernetes Deployment
+
+Manifests in `K8s/`, applied in order:
+
+```bash
+kubectl apply -f K8s/namespace.yaml
+
+kubectl create secret generic expensy-secrets \
+  --namespace expensy \
+  --from-literal=MONGO_ROOT_USERNAME=root \
+  --from-literal=MONGO_ROOT_PASSWORD=example \
+  --from-literal=REDIS_PASSWORD=someredispassword \
+  --from-literal=DATABASE_URI=mongodb://root:example@mongo:27017
+
+kubectl apply -f K8s/mongo.yaml
+kubectl apply -f K8s/redis.yaml
+kubectl apply -f K8s/backend.yaml
+kubectl apply -f K8s/frontend.yaml
+```
+
+- `mongo` / `redis` — in-cluster Deployments + `ClusterIP` Services (internal only)
+- `expensy-backend` — Deployment + **`LoadBalancer`** Service. Exposed publicly because the frontend's `NEXT_PUBLIC_API_URL` is called directly from the user's browser, not proxied server-side — so the backend needs a reachable public address. (A more production-hardened setup would instead proxy API calls through the frontend server and keep the backend `ClusterIP`-only — noted as a future improvement, see Security section.)
+- `expensy-frontend` — Deployment + `LoadBalancer` Service, publicly accessible
+
+```bash
+kubectl get pods -n expensy
+kubectl get svc expensy-frontend -n expensy
+```
+
+Open the `EXTERNAL-IP` shown for `expensy-frontend` in a browser to access the live app.
+
+---
+<img width="897" height="227" alt="Screenshot 2026-08-11 163721" src="https://github.com/user-attachments/assets/ffaf251d-dab8-472b-9b3a-df010c011915" />
+
+<img width="1368" height="120" alt="Screenshot 2026-08-11 163848" src="https://github.com/user-attachments/assets/e8cba3a3-faf5-4a65-b42a-f636a5d2ae5e" />
+
+
+
+
+
+## 6. Monitoring & Logging
+
+
+- **Prometheus + Grafana** installed via the `kube-prometheus-stack` Helm chart — auto-discovers and scrapes metrics from all cluster pods/nodes.
+- Grafana's built-in **Namespace (Pods)** dashboard filtered to the `expensy` namespace shows live CPU/memory for `expensy-backend`, `expensy-frontend`, `mongo`, and `redis`.
+- **EKS control-plane logs** (`api`, `audit`, `authenticator`) ship automatically to **CloudWatch Logs** (`/aws/eks/expensy-miracle-eks/cluster`).
+- **Application logs** are accessed via `kubectl logs -n expensy -l app=<service>`.
+
+---
+
+## Status
+
+- [x] Local development environment
+- [x] Dockerfiles + docker-compose
+- [x] CI/CD pipeline (build, test, push to Docker Hub + ECR, manual-approval deploy gate)
+- [x] EKS cluster provisioned via Terraform
+- [x] Kubernetes manifests deployed (Mongo, Redis, backend, frontend)
+- [x] Monitoring (Prometheus/Grafana) + Logging (CloudWatch)
+- [ ] Security & Compliance documentation *(next up)*
+
+This covers how metrics monitoring (Prometheus + Grafana) and logging are set up for the Expensy EKS deployment.
+
+## Contents
+
+- `prometheus-values.yaml` — Helm values used to install the `kube-prometheus-stack` chart (Prometheus, Grafana, Alertmanager, node-exporter, kube-state-metrics).
+- `namespace-pods-dashboard.json` — Exported Grafana dashboard showing CPU/memory usage per pod in the `expensy` namespace (backend, frontend, mongo, redis).
+
+## Metrics: Prometheus & Grafana
+
+### How it was installed
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+kubectl create namespace monitoring
+
+helm install monitoring prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f prometheus-values.yaml
+```
+<img width="1916" height="1057" alt="Screenshot 2026-08-11 123307" src="https://github.com/user-attachments/assets/df963a61-3543-4135-9bbb-fa43a9d4f2ec" />
+
+
+**Expensy app pods**
+
+
+<img width="972" height="202" alt="Screenshot 2026-08-11 123436" src="https://github.com/user-attachments/assets/3f2e930c-950b-42c6-8ea2-d65d3615e9cf" />
+
+
+This deploys:
+- **Prometheus** — scrapes metrics from all pods/nodes in the cluster automatically via `kube-state-metrics` and `node-exporter` (no manual instrumentation needed for basic CPU/memory/pod-status metrics).
+- **Grafana** — dashboards for visualizing the above. Comes pre-loaded with a set of standard Kubernetes dashboards (cluster overview, per-namespace pod resources, per-node resources, etc.).
+- **Alertmanager** — routes alerts (not configured with external notification channels yet — alerts fire internally but aren't piped to Slack/email/etc. This would be the next step for a production setup).
+- **node-exporter** — one per node, exposes host-level metrics (CPU, memory, disk, network).
+
+### Accessing Grafana
+
+Grafana isn't exposed publicly by default. To access it:
+
+```bash
+kubectl port-forward -n monitoring svc/monitoring-grafana 3001:80
+```
+
+Then open `http://localhost:3001` in your browser.
+
+**Login:**
+- Username: `admin`
+- Password: set at install time via `grafana.adminPassword` in `prometheus-values.yaml`. **Note:** if you've changed the password since via Grafana's UI (Profile → Change Password), that change is stored in Grafana's own database, not reflected in this file — the file only shows the original install-time value.
+
+### Viewing app-specific metrics
+
+Once logged in:
+1. Go to **Dashboards** in the sidebar
+2. Open **Kubernetes / Compute Resources / Namespace (Pods)**
+3. Select `expensy` from the namespace dropdown at the top
+
+This shows live CPU and memory usage for `expensy-backend`, `expensy-frontend`, `mongo`, and `redis` pods specifically.
+
+### Re-importing the exported dashboard
+
+If setting this up fresh (new cluster, new Grafana instance), the dashboard is already included in the default `kube-prometheus-stack` install — no manual import needed. The exported JSON in this repo is provided as the deliverable/reference copy, and can also be manually imported via **Dashboards → New → Import** in Grafana if needed.
+
+## Logging
+
+### EKS control plane logs (CloudWatch)
+
+Control plane logging is enabled via the EKS cluster configuration (Terraform-managed) for:
+- `api` — Kubernetes API server logs
+- `audit` — audit trail of all API requests (who did what, when)
+- `authenticator` — IAM authentication logs
+
+These are sent automatically to **Amazon CloudWatch Logs**, under the log group:
+```
+/aws/eks/expensy-miracle-eks/cluster
+```
+
+**To view them:**
+```bash
+aws logs tail /aws/eks/expensy-miracle-eks/cluster --follow --region us-east-1
+```
+
+Or via the AWS Console: **CloudWatch → Log groups → `/aws/eks/expensy-miracle-eks/cluster`**
+
+`controllerManager` and `scheduler` logs are currently disabled (not needed for this project's scope, but can be enabled the same way if deeper cluster-internals debugging is needed later).
+
+<img width="1888" height="1052" alt="Screenshot 2026-08-11 130711" src="https://github.com/user-attachments/assets/8730e47e-67e4-4153-8ae8-6fc3b6e2fcfe" />
+
+
+### Application (pod) logs
+
+Application-level logs (from the frontend/backend containers themselves) are accessed directly via `kubectl`:
+
+```bash
+# Backend logs
+kubectl logs -n expensy -l app=expensy-backend --tail=100 -f
+
+# Frontend logs
+kubectl logs -n expensy -l app=expensy-frontend --tail=100 -f
+
+# Mongo / Redis
+kubectl logs -n expensy -l app=mongo --tail=100 -f
+kubectl logs -n expensy -l app=redis --tail=100 -f
+```
+
+<img width="981" height="140" alt="Screenshot 2026-08-11 130337" src="https://github.com/user-attachments/assets/76d88cc8-e9be-49eb-964d-aa4d4d1b4ff9" />

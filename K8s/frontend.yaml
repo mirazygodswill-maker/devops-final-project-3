@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: expensy-frontend
+  namespace: expensy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: expensy-frontend
+  template:
+    metadata:
+      labels:
+        app: expensy-frontend
+    spec:
+      containers:
+        - name: expensy-frontend
+          image: 686699774218.dkr.ecr.us-east-1.amazonaws.com/expensy-frontend:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: expensy-frontend
+  namespace: expensy
+spec:
+  selector:
+    app: expensy-frontend
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: LoadBalancer

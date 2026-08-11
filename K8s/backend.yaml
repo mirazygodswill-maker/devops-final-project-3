@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: expensy-backend
+  namespace: expensy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: expensy-backend
+  template:
+    metadata:
+      labels:
+        app: expensy-backend
+    spec:
+      containers:
+        - name: expensy-backend
+          image: 686699774218.dkr.ecr.us-east-1.amazonaws.com/expensy-backend:latest
+          ports:
+            - containerPort: 8706
+          env:
+            - name: PORT
+              value: "8706"
+            - name: DATABASE_URI
+              valueFrom:
+                secretKeyRef:
+                  name: expensy-secrets
+                  key: DATABASE_URI
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: expensy-secrets
+                  key: REDIS_PASSWORD
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: expensy-backend
+  namespace: expensy
+spec:
+  selector:
+    app: expensy-backend
+  ports:
+    - port: 8706
+      targetPort: 8706
+  type: LoadBalancer
