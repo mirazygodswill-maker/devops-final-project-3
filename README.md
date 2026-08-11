@@ -1,157 +1,108 @@
-<!-- Final Project: End-to-End DevOps Deployment -->
+# Monitoring & Logging
 
-## Lesson Overview :pencil2:
+This covers how metrics monitoring (Prometheus + Grafana) and logging are set up for the Expensy EKS deployment.
 
-In this project, we will focus on the hands-on implementation of the learnings throughout this program, where you will gain practical insights while setting up the entire DevOps cycle and deploying applications using acquired best practices. 
+## Contents
 
-<br>
+- `prometheus-values.yaml` — Helm values used to install the `kube-prometheus-stack` chart (Prometheus, Grafana, Alertmanager, node-exporter, kube-state-metrics).
+- `namespace-pods-dashboard.json` — Exported Grafana dashboard showing CPU/memory usage per pod in the `expensy` namespace (backend, frontend, mongo, redis).
 
-## Learning Objectives :notebook:
+## Metrics: Prometheus & Grafana
 
-By the end of this project, you will: 
+### How it was installed
 
-1. Apply DevOps practices to a real-world project in a production environment.
-2. Build an effective CI/CD pipeline to automate delivery.
-3. Automate provisioning, configuration and infrastructure management using Terraform and Ansible. 
-4. Deploy and manage containerized applications using Kubernetes. 
-5. Integrate applications with Managed Kubernetes Service and other cloud services
-6. Set up monitoring and create dashboards using Grafana and Prometheus
-7. Resolve issues arising during the entire cycle using best practices
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
 
-<br>
+kubectl create namespace monitoring
 
-## Project Highlights :key:
+helm install monitoring prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f prometheus-values.yaml
+```
+<img width="1916" height="1057" alt="Screenshot 2026-08-11 123307" src="https://github.com/user-attachments/assets/df963a61-3543-4135-9bbb-fa43a9d4f2ec" />
 
-### Product Management:
 
-1. This capstone project is a team project, where you will assume roles and work as a scrum team. 
-2. The following indicators will be helpful for the successful completion of your project:         
-    - The duration of one Sprint Cycle is 5 days. So, you will have three Sprint Cycles for this project.
-    - Start with identifying a Scrum Master within your team.
-    - Make sure to follow all scrum events like Sprint, Sprint Planning, Daily Scrum, Sprint Review, Sprint Retrospection.
-    - Plan a Sprint Review at the end of every Sprint Cycle.
-3. Your instructor will be the product owner. If you have any questions regarding the requirements or deliverables, you can address them to the Product Owner.
-4. **Suggestion:** Start with a Team Agreement 
-    - Decide your working hours
-    - Decide your definition of done
-    - Decide your team’s way of work
-    - Identify the time when you will have your scrum events like daily scrum, sprint review, and other scrum events 
-5. We will make use of Azure Boards (or JIRA boards or any other similar tool) to manage work
-6. Please ensure that you have your Daily Scrum and evening sync-up (daily retrospective) every day.
-7. The final sprint review and respective presentations will be held on the last day of the project (during the second half).
+**Expensy app pods**
 
-<br>
 
-### Pre-requisites
+<img width="972" height="202" alt="Screenshot 2026-08-11 123436" src="https://github.com/user-attachments/assets/3f2e930c-950b-42c6-8ea2-d65d3615e9cf" />
 
-1. You can use any cloud of your choice (AWS, Azure or Hybrid). Make sure to have an account with free-trial or an account with enough credit.
-2. Create a free account on the DockerHub registry. This account will be used to host docker images used in the project
 
-### Web Application Introduction
+This deploys:
+- **Prometheus** — scrapes metrics from all pods/nodes in the cluster automatically via `kube-state-metrics` and `node-exporter` (no manual instrumentation needed for basic CPU/memory/pod-status metrics).
+- **Grafana** — dashboards for visualizing the above. Comes pre-loaded with a set of standard Kubernetes dashboards (cluster overview, per-namespace pod resources, per-node resources, etc.).
+- **Alertmanager** — routes alerts (not configured with external notification channels yet — alerts fire internally but aren't piped to Slack/email/etc. This would be the next step for a production setup).
+- **node-exporter** — one per node, exposes host-level metrics (CPU, memory, disk, network).
 
-This sample application is an Expense Tracker with four microservices, a backend built in node, frontend built with Next.js (Node based framework), along with a MongoDB database and Redis caching DB.
+### Accessing Grafana
 
-[Clone this repository and share it with the team](https://github.com/saurabhd2106/devops-final-project.git)
+Grafana isn't exposed publicly by default. To access it:
 
-Your task is to build a solution for this application that is scalable and can support zero to thousands of users. 
+```bash
+kubectl port-forward -n monitoring svc/monitoring-grafana 3001:80
+```
 
-### Make sure to use the following:
+Then open `http://localhost:3001` in your browser.
 
-#### 1. Infrastructure as Code (IaC):
+**Login:**
+- Username: `admin`
+- Password: set at install time via `grafana.adminPassword` in `prometheus-values.yaml`. **Note:** if you've changed the password since via Grafana's UI (Profile → Change Password), that change is stored in Grafana's own database, not reflected in this file — the file only shows the original install-time value.
 
-- Use Terraform, AWS CloudFormation, or another IaC tool to define your infrastructure.
+### Viewing app-specific metrics
 
-#### 2. Your infrastructure should include:
+Once logged in:
+1. Go to **Dashboards** in the sidebar
+2. Open **Kubernetes / Compute Resources / Namespace (Pods)**
+3. Select `expensy` from the namespace dropdown at the top
 
-- Compute resources (e.g., EC2 instances, Kubernetes clusters).
-- Networking resources (e.g., VPC, subnets, security groups).
-- Storage resources (e.g., S3 buckets, RDS instances).
-- Continuous Integration/Continuous Deployment (CI/CD):
+This shows live CPU and memory usage for `expensy-backend`, `expensy-frontend`, `mongo`, and `redis` pods specifically.
 
-#### 3. Implement a CI/CD pipeline using tools such as Jenkins, GitLab CI, or GitHub Actions.
+### Re-importing the exported dashboard
 
-The pipeline should:
-- Automatically build and test your application.
-- Deploy the application to a staging environment.
-- Deploy to production upon approval.
+If setting this up fresh (new cluster, new Grafana instance), the dashboard is already included in the default `kube-prometheus-stack` install — no manual import needed. The exported JSON in this repo is provided as the deliverable/reference copy, and can also be manually imported via **Dashboards → New → Import** in Grafana if needed.
 
-#### 4. Containerization and Orchestration:
-- Containerize your application using Docker.
-- Use Kubernetes or Docker Swarm for orchestration to ensure your application can scale horizontally.
+## Logging
 
-#### 5. Monitoring and Logging:
+### EKS control plane logs (CloudWatch)
 
-- Implement monitoring using tools like Prometheus, Grafana, or AWS CloudWatch.
+Control plane logging is enabled via the EKS cluster configuration (Terraform-managed) for:
+- `api` — Kubernetes API server logs
+- `audit` — audit trail of all API requests (who did what, when)
+- `authenticator` — IAM authentication logs
 
-#### 6. Autoscaling:
+These are sent automatically to **Amazon CloudWatch Logs**, under the log group:
+```
+/aws/eks/expensy-miracle-eks/cluster
+```
 
-- Configure autoscaling for your compute resources (e.g., AWS Auto Scaling groups, Kubernetes Horizontal Pod Autoscaler) to handle varying loads.
+**To view them:**
+```bash
+aws logs tail /aws/eks/expensy-miracle-eks/cluster --follow --region us-east-1
+```
 
-#### 7. Security and Compliance:
+Or via the AWS Console: **CloudWatch → Log groups → `/aws/eks/expensy-miracle-eks/cluster`**
 
-- Implement best security practices, including network security (firewalls, security groups), data encryption, and IAM policies.
-- Ensure compliance with relevant standards (e.g., GDPR, HIPAA) as applicable.
+`controllerManager` and `scheduler` logs are currently disabled (not needed for this project's scope, but can be enabled the same way if deeper cluster-internals debugging is needed later).
 
-### Deliverables:
+<img width="1888" height="1052" alt="Screenshot 2026-08-11 130711" src="https://github.com/user-attachments/assets/8730e47e-67e4-4153-8ae8-6fc3b6e2fcfe" />
 
-#### 1. Infrastructure Code:
 
-- Provide all IaC scripts and configuration files like Terraform scripts, AWS CloudFormation templates, Ansible playbooks, etc.
-- Include documentation explaining the infrastructure setup and how to deploy it.
+### Application (pod) logs
 
-#### 2. CI/CD Pipeline Configuration:
+Application-level logs (from the frontend/backend containers themselves) are accessed directly via `kubectl`:
 
-- Provide the CI/CD pipeline configuration files like Jenkinsfile, GitHub Actions workflows, etc.
-- Include detailed documentation on how to set up and use the pipeline.
+```bash
+# Backend logs
+kubectl logs -n expensy -l app=expensy-backend --tail=100 -f
 
-#### 3. Application Containerization and Orchestration:
+# Frontend logs
+kubectl logs -n expensy -l app=expensy-frontend --tail=100 -f
 
-- Provide Dockerfiles and Kubernetes/Docker Swarm configuration files.
-- Include documentation on how to build and deploy the containers.
+# Mongo / Redis
+kubectl logs -n expensy -l app=mongo --tail=100 -f
+kubectl logs -n expensy -l app=redis --tail=100 -f
+```
 
-#### 4. Monitoring and Logging Configuration:
-
-- Provide configuration files for monitoring and logging tools, including Prometheus configuration, Grafana dashboards, ELK stack configuration, etc.
-- Include documentation on how to set up and interpret the monitoring and logging data.
-
-#### 5. Autoscaling Configuration:
-
-- Provide configuration files or scripts for autoscaling.
-- Include documentation explaining the autoscaling policies, criteria for scaling, how to simulate load to test autoscaling, commands to check the current scaling status, etc. 
-
-#### 6. Security and Compliance Documentation:
-
-- Provide a security overview document detailing the measures implemented.
-- Include compliance checklists and how your solution adheres to them.
-
-### Evaluation Criteria:
-
-1. Scalability:
-
-- The solution should handle increasing loads efficiently.
-- Autoscaling should work as expected, without degrading performance.
-- Infrastructure should be able to scale horizontally (adding more instances) or vertically (upgrading existing instances) as needed.
-
-2. Reliability:
-
-- The CI/CD pipeline should deploy the application without errors.
-- Monitoring and logging should provide useful insights into the application’s health.
-- The pipeline should be ready for smooth integration of new code and features.
-
-3. Security:
-
-- The solution should follow best security practices.
-- Compliance with relevant standards should be documented.
-
-4. Documentation:
-
-- The documentation should be clear and comprehensive documentation for each component.
-- Ease of understanding and reproducibility must be considered while documenting all components. 
-
-<!-- ## Additional Resources :clipboard: 
-
-If you would like to study these concepts before the class or would benefit from some remedial studying, please utilize the resources below: -->
-
-<br>
-
-**Good luck!**
+<img width="981" height="140" alt="Screenshot 2026-08-11 130337" src="https://github.com/user-attachments/assets/76d88cc8-e9be-49eb-964d-aa4d4d1b4ff9" />
