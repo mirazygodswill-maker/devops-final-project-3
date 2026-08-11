@@ -94,6 +94,26 @@ App runs at `http://localhost:3000`.
 
 
 
+
+
+### Application
+My Expensy frontend was previously running directly on my machine/Docker Desktop, with:
+localhost:3002 → frontend container
+http://localhost:3002
+
+AWS EKS (Deployed and working) 
+The Expensy application is deployed on AWS EKS and is accessible through
+the AWS Application Load Balancer:
+
+http://aaaf2fe1f0a5d421298674bc97989bb1-464724746.us-east-1.elb.amazonaws.com/home
+
+<img width="1901" height="965" alt="Screenshot 2026-08-11 170616" src="https://github.com/user-attachments/assets/a30c2e2f-83d5-474a-b9c4-2c21247f7eae" />
+<img width="1915" height="647" alt="Screenshot 2026-08-11 170636" src="https://github.com/user-attachments/assets/6a9f6348-b02f-421c-adb5-4ea887c76e31" />
+
+
+
+
+
 ## 2. Containerization
 
 Both services have multi-stage Dockerfiles (`Dockerfile.backend`, `Dockerfile.frontend`) that build the app, then run it in a minimal runtime image.
