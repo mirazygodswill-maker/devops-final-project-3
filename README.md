@@ -297,7 +297,14 @@ helm install monitoring prometheus-community/kube-prometheus-stack \
 
 
 
+
+
+
 **Expensy app pods**
+
+
+
+
 
 
 
@@ -360,7 +367,8 @@ Or via the AWS Console: **CloudWatch → Log groups → `/aws/eks/expensy-miracl
 
 `controllerManager` and `scheduler` logs are currently disabled (not needed for this project's scope, but can be enabled the same way if deeper cluster-internals debugging is needed later).
 
-<img width="1888" height="1052" alt="Screenshot 2026-08-11 130711" src="https://github.com/user-attachments/assets/8730e47e-67e4-4153-8ae8-6fc3b6e2fcfe" />
+<img width="1911" height="1031" alt="Screenshot 2026-08-12 164430" src="https://github.com/user-attachments/assets/2ef3ab2d-7166-4204-a614-6faba15e8c59" />
+
 
 
 ### Application (pod) logs
@@ -379,5 +387,6 @@ kubectl logs -n expensy -l app=mongo --tail=100 -f
 kubectl logs -n expensy -l app=redis --tail=100 -f
 ```
 
-<img width="1911" height="1031" alt="Screenshot 2026-08-12 164430" src="https://github.com/user-attachments/assets/e841c254-2b63-4b40-84d7-21efb288b3b4" />
+<img width="942" height="140" alt="Screenshot 2026-08-14 000105" src="https://github.com/user-attachments/assets/c0a22088-528c-406f-8bed-7d114567e512" />
+
 
