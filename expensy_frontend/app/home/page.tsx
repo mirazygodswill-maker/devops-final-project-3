@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useMemo, useEffect, ChangeEvent } from "react"
-import axios from "axios"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -10,11 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { ChartTooltipContent, ChartTooltip, ChartContainer } from "@/components/ui/chart"
 import { Pie, PieChart, Cell } from "recharts"
-import { addExpensesAPI, fetchExpensesAPI } from "@/api/expensesapi"
+import { addExpensesAPI, fetchExpensesAPI, deleteExpenseAPI, updateExpenseAPI } from "@/api/expensesapi"
 
-// Types
 interface Expense {
-  id: number
+  id: string
   name: string
   amount: number
   category: string
@@ -26,7 +24,6 @@ interface NewExpense {
   category: string
 }
 
-// Utility function to generate random colors
 const generateRandomColor = () => {
   const letters = "0123456789ABCDEF"
   let color = "#"
@@ -43,18 +40,26 @@ export default function Component() {
     amount: "",
     category: "",
   })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValues, setEditValues] = useState<NewExpense>({ name: "", amount: "", category: "" })
+
+  const loadExpenses = async () => {
+    try {
+      const response = await fetchExpensesAPI()
+      const mapped = response.data.map((e: any) => ({
+        id: e._id,
+        name: e.name,
+        amount: e.amount,
+        category: e.category,
+      }))
+      setExpenses(mapped)
+    } catch (error) {
+      console.error("Error fetching expenses:", error)
+    }
+  }
 
   useEffect(() => {
-    // Fetch mock data from API
-    const fetchExpenses = async () => {
-      try {
-        const response = await fetchExpensesAPI()
-        setExpenses(response.data)
-      } catch (error) {
-        console.error("Error fetching expenses:", error)
-      }
-    }
-    fetchExpenses()
+    loadExpenses()
   }, [])
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -66,21 +71,55 @@ export default function Component() {
 
   const handleAddExpense = async () => {
     if (newExpense.name && newExpense.amount && newExpense.category) {
-      setExpenses([
-        ...expenses,
-        {
-          id: expenses.length + 1,
-          name: newExpense.name,
-          amount: parseFloat(newExpense.amount),
-          category: newExpense.category,
-        },
-      ])
-       await addExpensesAPI(newExpense.name, parseFloat(newExpense.amount), newExpense.category)
-      setNewExpense({
-        name: "",
-        amount: "",
-        category: "",
-      })
+      try {
+        await addExpensesAPI(newExpense.name, parseFloat(newExpense.amount), newExpense.category)
+        setNewExpense({ name: "", amount: "", category: "" })
+        await loadExpenses()
+      } catch (error) {
+        console.error("Error adding expense:", error)
+      }
+    }
+  }
+
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      await deleteExpenseAPI(id)
+      await loadExpenses()
+    } catch (error) {
+      console.error("Error deleting expense:", error)
+    }
+  }
+
+  const startEditing = (expense: Expense) => {
+    setEditingId(expense.id)
+    setEditValues({
+      name: expense.name,
+      amount: String(expense.amount),
+      category: expense.category,
+    })
+  }
+
+  const cancelEditing = () => {
+    setEditingId(null)
+    setEditValues({ name: "", amount: "", category: "" })
+  }
+
+  const handleEditInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setEditValues({
+      ...editValues,
+      [e.target.id]: e.target.value,
+    })
+  }
+
+  const saveEdit = async (id: string) => {
+    if (editValues.name && editValues.amount && editValues.category) {
+      try {
+        await updateExpenseAPI(id, editValues.name, parseFloat(editValues.amount), editValues.category)
+        setEditingId(null)
+        await loadExpenses()
+      } catch (error) {
+        console.error("Error updating expense:", error)
+      }
     }
   }
 
@@ -167,16 +206,56 @@ export default function Component() {
             <TableHeader>
               <TableRow>
                 <TableHead>Expense</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {expenses.map((expense) => (
                 <TableRow key={expense.id}>
-                  <TableCell className="font-medium">{expense.name}</TableCell>
-                  <TableCell className="text-right">${expense.amount}</TableCell>
-                  <TableCell>{expense.category}</TableCell>
+                  {editingId === expense.id ? (
+                    <>
+                      <TableCell>
+                        <Input id="name" value={editValues.name} onChange={handleEditInputChange} />
+                      </TableCell>
+                      <TableCell>
+                        <Input id="amount" type="number" value={editValues.amount} onChange={handleEditInputChange} />
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={editValues.category}
+                          onValueChange={(value) => setEditValues({ ...editValues, category: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Housing">Housing</SelectItem>
+                            <SelectItem value="Food">Food</SelectItem>
+                            <SelectItem value="Transportation">Transportation</SelectItem>
+                            <SelectItem value="Utilities">Utilities</SelectItem>
+                            <SelectItem value="Entertainment">Entertainment</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button size="sm" onClick={() => saveEdit(expense.id)}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={cancelEditing}>Cancel</Button>
+                      </TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell className="font-medium">{expense.name}</TableCell>
+                      <TableCell className="text-right">${expense.amount}</TableCell>
+                      <TableCell>{expense.category}</TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button size="sm" variant="outline" onClick={() => startEditing(expense)}>Edit</Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteExpense(expense.id)}>Delete</Button>
+                      </TableCell>
+                    </>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

@@ -1,6 +1,6 @@
 'use client'
 import axios from 'axios';
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const BASE_URL = '/api';
 // BASE_URL= "http://localhost:8080";
 console.log('BASE_URL', BASE_URL);
 export const apiClient = axios.create({

@@ -8,7 +8,6 @@ export class ExpenseService {
         console.log('Cache hit');
       return JSON.parse(cachedExpenses);
     }
-
     const expenses = await Expense.find();
     await redis.set('expenses', JSON.stringify(expenses), 'EX', 60 * 5); // Cache for 5 minutes
     return expenses;
@@ -18,5 +17,17 @@ export class ExpenseService {
     const newExpense = await Expense.create(expense);
     await redis.del('expenses'); // Clear the cache
     return newExpense;
+  }
+
+  async deleteExpense(id: string) {
+    const deleted = await Expense.findByIdAndDelete(id);
+    await redis.del('expenses'); // Clear the cache
+    return deleted;
+  }
+
+  async updateExpense(id: string, updates: { name?: string, amount?: number, category?: string }) {
+    const updated = await Expense.findByIdAndUpdate(id, updates, { new: true });
+    await redis.del('expenses'); // Clear the cache
+    return updated;
   }
 }
