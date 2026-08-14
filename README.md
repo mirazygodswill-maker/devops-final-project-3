@@ -10,7 +10,8 @@ https://docs.google.com/presentation/d/1aEGBfrzjVIg9KYabwhHj_oKeGtKW8LYffRy8cyME
 
 **Expensy-End-toEnd DeVops Deployment Architecture**
 
-<img width="1356" height="784" alt="Gemini_Generated_Image_ubb02qubb02qubb0" src="https://github.com/user-attachments/assets/9e64e372-dc2b-44f0-a7e5-3a45d3246445" />
+<img width="1200" height="895" alt="Gemini_Generated_Image_b6nxoab6nxoab6nx" src="https://github.com/user-attachments/assets/cf0270a2-9853-4c76-bf1f-0c15d42d6241" />
+
 
 
 ## Project Structure
